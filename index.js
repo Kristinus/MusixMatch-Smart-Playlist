@@ -7,8 +7,6 @@ import cookieParser from 'cookie-parser';
 dotenv.config();
 const app = express();
 app.use(cookieParser());
-const port = 3000;
-
 
 const options = {
     protocol: 'http:',
@@ -16,73 +14,72 @@ const options = {
     path: `/ws/1.1/track.search?apikey=${process.env.API_KEY}`,
 };
 
-function getLyrics(trackId, callback) {
-    const opt = {...options, path: `${options.path}&track_id=${trackId}`};
-    const req = http.get(opt, _res => {
-        const chunks = [];
-        _res.on('data', chunk => {
-            chunks.push(chunk);
-        });
-        _res.on('end', d => {
-            const body = Buffer.concat(chunks);
-            const out = JSON.parse(body.toString());
 
-            const lyrics = out.message.body.lyrics.lyrics_body;
-            callback(lyrics)
-        });
-    }).on('error', e => {
-        console.error(e);
-    })
-    req.end();
-}
 
-function searchSong(lyrics, callback) {
+async function searchSong(lyrics) {
+    encodeURIComponent(lyrics.join(" "));
     const opt = {...options, path: `${options.path}&q_lyrics=${lyrics}`};
-    http.get(opt, _res => {
-        const chunks = [];
-        _res.on('data', chunk => {
-            chunks.push(chunk);
+    return new Promise( (res, reject) => {
+        http.get(opt, _res => {
+            const chunks = [];
+            _res.on('data', chunk => {
+                chunks.push(chunk);
+            });
+            _res.on('end', d => {
+                const body = Buffer.concat(chunks);
+                
+                const out = JSON.parse(body.toString());
+                if(out.message.header.status_code === 401) {
+                    res.send("API KEY does not work");
+                }
+                const track_list = out.message.body.track_list;
+                res(new Song(track_list[0].track));
+            });
+        }).on ('error', e => {
+            console.error(e);
+            reject(e);
         });
-        _res.on('end', d => {
-            const body = Buffer.concat(chunks);
-            
-            const out = JSON.parse(body.toString());
-            if(out.message.header.status_code === 401) {
-                res.send("API KEY does not work");
-            }
-            const track_list = out.message.body.track_list;
-            callback(new Song(track_list[0].track));
-        });
-    }).on ('error', e => {
-        console.error(e);
     });
 }
 
+async function getRandomLyrics(lyrics, song) {
+    const _lyrics = await Song.getLyrics(song.trackId);
+    for(let i=0; i<5; i++) {
+        const idx = Math.round(Math.random() * _lyrics.length);
+        lyrics.push(_lyrics[idx]);
+    }
+}
 
-app.get('/category/:categoryName', (req, res) => {
-    const categoryName = encodeURIComponent(req.params.categoryName);
-    const queryString = `&q_lyrics=${categoryName}`;
+
+app.get('/category/:categoryName', async (req, res) => {
     if(req.cookies.lyrics === undefined) {
+        const lyrics = req.params.categoryName.split(/\s+/);
         // First 2 songs
-
-
-        res.cookie("lyrics", 0);
+        const song1 = await searchSong(lyrics);
+        await getRandomLyrics(lyrics, song1);
+        const song2 = await searchSong(lyrics);
+        await getRandomLyrics(lyrics, song2);
         
+        res.cookie("lyrics", lyrics);
+        res.send([song1, song2]);
     }
 
     else {
-        const newLyrics = req.cookies.lyrics;
-        res.cookie("lyrics", newLyrics);
-        // new songs
-    }    
-    const opt = {...options, path: `${options.path}${queryString}`};
+        const lyrics = req.cookies.lyrics;
+        console.log(lyrics);
+        const song = await searchSong(lyrics);
+        await getRandomLyrics(lyrics, song);
+        console.log(lyrics);
+        res.cookie("lyrics", lyrics);
+        res.send(song)
+    }
 });
 
 app.get('/clear', (req, res) => {
-    res.clearCookie("requests");
+    res.clearCookie("lyrics");
     res.send("CLEARED");
 })
 
-app.listen(port, () => {
-    console.log(`MusixMatch app listening at http://localhost:${port}`);
+app.listen(process.env.PORT, () => {
+    console.log(`MusixMatch app listening at http://localhost:${process.env.PORT}`);
 })

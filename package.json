@@ -1,0 +1,20 @@
+{
+  "name": "MusixMatch",
+  "version": "1.0.0",
+  "description": "Generate a \"smart\" playlist that is based off of the product category that an advertiser sells in.",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon --exec node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cookie-parser": "^1.4.5",
+    "dotenv": "^9.0.2",
+    "express": "^4.17.1",
+    "https": "^1.0.0"
+  },
+  "type": "module"
+}

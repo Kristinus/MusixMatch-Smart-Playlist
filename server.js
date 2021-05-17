@@ -35,15 +35,10 @@ wss.on('connection', async(ws, req) => {
     trackIds.push(song2.trackId);
     await Song.getRandomLyrics(song2, lyrics);
     console.log([song1, song2]);
-    console.log(trackIds);
 
     ws.send(stringify([song1, song2]));
     console.log(lyrics);
 
-    ws.on('open', () => {
-        console.log('OPEN');
-        console.log(req.url);
-    });
 
     ws.on('message', async(data) => {
         // Return subsequent songs
@@ -51,12 +46,13 @@ wss.on('connection', async(ws, req) => {
             const song = await Song.searchSong(lyrics, trackIds);
             trackIds.push(song.trackId);
             await Song.getRandomLyrics(song, lyrics);
-            console.log(trackIds);
 
             ws.send(stringify(song));
         } catch(e) {
             console.log(e);
-            ws.send("no more songs");
+            console.log(trackIds);
+            console.log(lyrics);
+            ws.send(e);
         }
     });    
 });
